@@ -3,66 +3,58 @@
 
 void AudioProcessor::update(void)
 {
-  audio_block_t *blockL, *blockR;
-  float inL, inR, outL, outR;
-  unsigned int i;
-
-
-  // obtain AUDIO_BLOCK_SAMPLES samples (by default 128)
-  blockL = receiveWritable(0);
-  if (!blockL) return;
-  blockR = receiveWritable(1);
-  if (!blockR) return;
-
-  // The data[] is an array of 16 bit integers representing the audio (blockL->data[i] is of uint16_t type)
-  // (Note: The data[] array is always 32 bit aligned in memory, so you can fetch pairs of samples 
-  //        by type casting the address as a pointer to 32 bit data (uint32_t))
-
-  for (i=0; i < AUDIO_BLOCK_SAMPLES; i++) {
-    // read the input signal
-    inL = blockL->data[i] * conversionConstADC;
-    inR = blockR->data[i] * conversionConstADC;
+    audio_block_t* block;
+    //float sample
+    float sample;
     
-    DSPL.process(&inL, &outL);
-    DSPR.process(&inR, &outR);
-    //DSPR.process(&inR, &outR);
-    // write the output signal
-    blockL->data[i] = outL * conversionConstDAC;
-    blockR->data[i] = outR * conversionConstDAC;    
-  }
-
-  transmit(blockL,0);
-  transmit(blockR,1);
-  release(blockL);
-  release(blockR);
+    // The data[] is an array of 16 bit integers representing the audio (blockL->data[i] is of uint16_t type)
+    // (Note: The data[] array is always 32 bit aligned in memory, so you can fetch pairs of samples 
+    //        by type casting the address as a pointer to 32 bit data (uint32_t))
+    for (i = 0; i < NUM_CHNLS; i++)
+    {
+        // obtain AUDIO_BLOCK_SAMPLES samples (by default 128)
+        block = receiveWritable(i);
+        if (!block) return;
+        if(i == 1){
+        // audio processing
+        for (j = 0; j < AUDIO_BLOCK_SAMPLES; j++) {
+            // read the input signal
+            sample = block->data[j] * conversionConstADC;
+            for (k = 0; k < fxNum; k++)
+            {
+               DSP[i][k].process(&sample);
+                
+            }
+            // save sample to buffer
+            tail[i] = (head[i] - 100) % BUFF_SIZE;
+            //queue[i][head[i]] = sample;
+           // if(i == 1)
+           // {
+              sample += 0.4 * queue[i][tail[i]];
+           // }
+            queue[i][head[i]] = sample;
+            head[i] = (head[i] + 1) % BUFF_SIZE;
+            // write output sample
+            block->data[j] = sample * conversionConstDAC;
+        }
+    }
+        // send buffer to output
+        transmit(block, i);
+        release(block);
+    }
 }
 
-void AudioProcessor::setParam(int numParam, const float _parameter)
+void AudioProcessor::changeParam(int fxPos, int numParam, const float _parameter)
 {
-  __disable_irq();
-  switch(numParam)
-  {
-    case 1:
-      DSPL.param1 = _parameter;
-      DSPR.param1 = _parameter;
-      break;
-    case 2:
-      DSPL.param2 = _parameter;
-      DSPR.param1 = _parameter;
-      break;
-    case 3:
-      DSPL.param3 = _parameter;
-      DSPR.param1 = _parameter;
-      break;
-    default:
-      break;
-  }
-  __enable_irq();
+    __disable_irq();
+    DSP[0][fxPos].setParam(numParam, _parameter);
+    DSP[1][fxPos].setParam(numParam, _parameter);
+    __enable_irq();
 }
-void AudioProcessor::changeEffect(int value)
+void AudioProcessor::changeEffect(int fxPos, int fx)
 {
-  __disable_irq();
-  DSPL.update(value);
-  DSPR.update(value);
-  __enable_irq();
+    __disable_irq();
+    DSP[0][fxPos].update(fx);
+    DSP[1][fxPos].update(fx);
+    __enable_irq();
 }
