@@ -1,36 +1,37 @@
 #pragma once
-#include <math.h>
+#include "AudioHelper.h"
 
 class ME_DSP
 {
 public:
-
-  void update(int pos, int value);
-	void process(float* in, float* out);
-	float param1 = 0.8f;
-  float param2 = 0.5f;
-  float param3 = 0.0f;
+	void update(int value);
+	void process(float* sample);
+	void setParam(int numParam, const float _parameter);
   
 private:
-
 	// Create effect variables
-  int numFx = 4;
-  int effect = 0;
-
-	// General DSP
-	const float twoPI = 2 * M_PI;
-	const float Fs = 44100.0f;
-	const float invFs = 1 / Fs;
- 
-  /* -- EFFECTS -- */
-  void tremolo(float* in, float* out);
-  void gain(float* in, float* out);
-  void clipping(float* in, float* out);
+	int effect = 0;
+	float param1 = 1.0f;
+	float param2 = 0.8;
+	float param3 = 0.0f;
+  
+	/* -- EFFECTS -- */
+	void tremolo(float* sample);
+  void delay(float* sample);
+	void gain(float* sample);
+	void clipping(float* sample);
+	void bitcrush(float* sample);
   
 	/* -- HELPER EFFECTS -- */
 	void LFO(float* out, float &phi, int wave);
+	void bound(float* x, int low, int high);
+  int map(float& x, int low, int high);
+  
+	/* -- MEMORY -- */
+	unsigned int i = 0;
 
-	// TREMOLO MEMORY
-	float mod = 0.0f;
+	// Tremolo
+	float mVar1 = 0.0f;
 	float phi = 0.0f;
+
 };
