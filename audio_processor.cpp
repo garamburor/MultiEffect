@@ -15,29 +15,24 @@ void AudioProcessor::update(void)
         // obtain AUDIO_BLOCK_SAMPLES samples (by default 128)
         block = receiveWritable(i);
         if (!block) return;
-        if(i == 1){
+
         // audio processing
         for (j = 0; j < AUDIO_BLOCK_SAMPLES; j++) {
             // read the input signal
             sample = block->data[j] * conversionConstADC;
             for (k = 0; k < fxNum; k++)
             {
-               DSP[i][k].process(&sample);
-                
+               DSP[i][k].process(&sample); 
             }
             // save sample to buffer
-            tail[i] = (head[i] - 100) % BUFF_SIZE;
-            //queue[i][head[i]] = sample;
-           // if(i == 1)
-           // {
-              sample += 0.4 * queue[i][tail[i]];
-           // }
             queue[i][head[i]] = sample;
+            tail[i] = positive_modulo(head[i] - 35000, BUFF_SIZE);
             head[i] = (head[i] + 1) % BUFF_SIZE;
+            //sample = queue[i][tail[i]];
+            
             // write output sample
             block->data[j] = sample * conversionConstDAC;
         }
-    }
         // send buffer to output
         transmit(block, i);
         release(block);
@@ -57,4 +52,9 @@ void AudioProcessor::changeEffect(int fxPos, int fx)
     DSP[0][fxPos].update(fx);
     DSP[1][fxPos].update(fx);
     __enable_irq();
+}
+
+inline int AudioProcessor::positive_modulo(int i, int n) 
+{
+    return (i % n + n) % n;
 }

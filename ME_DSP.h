@@ -9,11 +9,8 @@ public:
 	void setParam(int numParam, const float _parameter);
   
 private:
-	// Create effect variables
-	int effect = 0;
-	float param1 = 1.0f;
-	float param2 = 0.8;
-	float param3 = 0.0f;
+  /* PROCESSOR HELPER */
+  void reset();
   
 	/* -- EFFECTS -- */
 	void tremolo(float* sample);
@@ -22,12 +19,19 @@ private:
 	void clipping(float* sample);
 	void bitcrush(float* sample);
   
-	/* -- HELPER EFFECTS -- */
+	/* -- DSP HELPERS -- */
 	void LFO(float* out, float &phi, int wave);
+
+ /* -- PARAM HELPERS -- */
 	void bound(float* x, int low, int high);
   int map(float& x, int low, int high);
   
 	/* -- MEMORY -- */
+  int effect = 0;
+  float param1 = 0.5f;
+  float param2 = 0.5;
+  float param3 = 0.5f;
+  
 	unsigned int i = 0;
 
 	// Tremolo

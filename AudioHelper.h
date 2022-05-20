@@ -9,4 +9,4 @@
 #define Fs 44100.0f
 #define invFs 1 / Fs
 #define fxMax 8
-#define BUFF_SIZE static_cast<int>(120)  //(Fs * SEC)
+#define BUFF_SIZE 44100

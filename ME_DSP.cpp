@@ -1,6 +1,8 @@
 #include "ME_DSP.h"
 #include <cmath> 
 
+/* -- PROCESSOR -- */
+
 void ME_DSP::update(int value)
 {
   effect = value;
@@ -21,6 +23,9 @@ void ME_DSP::process(float* sample)
         break;
   }
 }
+
+/* -- DSP EFFECTS -- */
+
 void ME_DSP::gain(float* sample)
 {
     *sample = *sample * param1;
@@ -63,6 +68,8 @@ void ME_DSP::bitcrush(float* sample)
     mVar1 = pow(2,map(param1, 16, 2)-1);
     *sample = 0.7 * ceil(mVar1 * *sample) / mVar1;
 }
+
+/* -- DSP HELPERS -- */
 
 void ME_DSP::LFO(float* out, float& phi, int wave)
 {
@@ -119,6 +126,8 @@ void ME_DSP::setParam(int numParam, const float _parameter)
     }
 }
 
+/* -- PARAM HELPERS -- */
+
 void ME_DSP::bound(float* x, int low, int high)
 {
   if(*x < low)
@@ -136,4 +145,10 @@ int ME_DSP::map(float& x, int low, int high)
   int out;
   out = (int) low + (high - low) * x;
   return out;
+}
+
+/* PROCESSOR HELPER */
+void ME_DSP::reset()
+{
+  
 }

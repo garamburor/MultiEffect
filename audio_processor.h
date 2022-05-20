@@ -12,13 +12,7 @@ class AudioProcessor : public AudioStream
 {
 public:
 
-	AudioProcessor(void) : AudioStream(NUM_CHNLS, inputQueueArray)
-	{
-//      for(i = 0; i < NUM_CHNLS; i++)
-//      {
-//          memset(queue[i], 0, BUFF_SIZE);
-//      }  
-  }
+	AudioProcessor(void) : AudioStream(NUM_CHNLS, inputQueueArray) {}
 	virtual void update(void);
 	const int resolutionDAC = 16;
 	const int resolutionADC = 16;
@@ -31,11 +25,12 @@ public:
 
   // circular buffer
   float queue[NUM_CHNLS][BUFF_SIZE] = {};
-  unsigned head[NUM_CHNLS] = {};
-   unsigned tail[NUM_CHNLS] = {};
-  //unsigned int tail = 0;
+  uint32_t head[NUM_CHNLS] = {};
+  int tail[NUM_CHNLS] = {};
   
 private:
+  inline int positive_modulo(int i, int n);
+
 	// Objects
 	unsigned int fxNum = fxMax;
 	ME_DSP DSP[NUM_CHNLS][fxMax];
