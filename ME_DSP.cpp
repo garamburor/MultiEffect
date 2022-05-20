@@ -8,18 +8,22 @@ void ME_DSP::update(int value)
   effect = value;
 }
 
-void ME_DSP::process(float* sample)
+void ME_DSP::process(float* sample, float* buffer, int& writeHead)
 {
   switch (effect)
   {
+    case 0:
+        gain(sample);
     case 1:
         tremolo(sample);
         break;
     case 2:
         bitcrush(sample);
         break;
+    case 3:
+        delay(sample, buffer, writeHead);
     default:
-        gain(sample);
+        
         break;
   }
 }
@@ -46,21 +50,25 @@ void ME_DSP::clipping(float* sample)
 void ME_DSP::tremolo(float* sample)
 {
         // phase acts as f*n/Fs
-        phi += param2 * 15 * invFs;
+        mVar2 += param2 * 15 * invFs;
         // cal LFO for modulation
-        LFO(&mVar1, phi, (int)param3*3);
+        LFO(&mVar1, mVar2, (int)param3*3);
         // dry / wet control
         *sample = *sample * (1.0f - param1 + param1 * mVar1);
         // reset phi
-        if (phi >= 1.0f)
+        if (mVar2 >= 1.0f)
         {
-            phi = 0.0f;
+            mVar2 = 0.0f;
         }
 }
 
-void ME_DSP::delay(float* sample)
+void ME_DSP::delay(float* sample, float* buffer, int& writeHead)
 {
-  
+  mVar3 = param2 * (BUFF_SIZE - 1); // calculate delay
+  mVar3 = positive_modulo(writeHead - mVar3, BUFF_SIZE); // set read index
+  *sample = *sample + param3 * *(buffer + mVar3); // delay effect
+  //clipping(sample); // feedback protection
+  *(buffer + writeHead) = *sample; // feedback
 }
 
 void ME_DSP::bitcrush(float* sample)
@@ -87,7 +95,7 @@ void ME_DSP::LFO(float* out, float& phi, int wave)
             else if (phi < 0.98f)
                 *out = 0.0f;
             else
-                *out = 50.0f * (phi -0.98f);
+                *out = 50.0f * (phi - 0.98f);
             break;
 
         case 2: // Triangle
@@ -107,6 +115,14 @@ void ME_DSP::LFO(float* out, float& phi, int wave)
             break;
     }
 }
+
+inline int ME_DSP::positive_modulo(int i, int n)
+{
+  return (i % n + n) % n;
+}
+
+/* -- PARAM HELPERS -- */
+
 void ME_DSP::setParam(int numParam, const float _parameter)
 {
     switch(numParam)
@@ -125,8 +141,6 @@ void ME_DSP::setParam(int numParam, const float _parameter)
             break;
     }
 }
-
-/* -- PARAM HELPERS -- */
 
 void ME_DSP::bound(float* x, int low, int high)
 {
@@ -150,5 +164,12 @@ int ME_DSP::map(float& x, int low, int high)
 /* PROCESSOR HELPER */
 void ME_DSP::reset()
 {
-  
+  mVar1 = 0;
+  mVar2 = 0;
+  mVar3 = 0;
+  mVar4 = 0;
+}
+
+void ME_DSP::paramUpdate(int numParam) // change parameter values only
+{
 }

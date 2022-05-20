@@ -22,24 +22,22 @@ public:
 	// Set a parameter
 	void changeParam(int fxPos, int numParam, const float _parameter);
 	void changeEffect(int fxPos, int value);
+  
+private:
+  audio_block_t *inputQueueArray[NUM_CHNLS];
 
   // circular buffer
   float queue[NUM_CHNLS][BUFF_SIZE] = {};
-  uint32_t head[NUM_CHNLS] = {};
+  int head[NUM_CHNLS] = {};
   int tail[NUM_CHNLS] = {};
   
-private:
-  inline int positive_modulo(int i, int n);
-
-	// Objects
-	unsigned int fxNum = fxMax;
+	// DSP Objects
+	uint8_t fxNum = fxMax;
 	ME_DSP DSP[NUM_CHNLS][fxMax];
   
-	unsigned int i = 0;
-	unsigned int j = 0;
-	unsigned int k = 0;
- 
-	audio_block_t *inputQueueArray[NUM_CHNLS];
+	uint8_t i = 0;
+	uint8_t j = 0;
+	uint8_t k = 0;
 };
 
 #endif

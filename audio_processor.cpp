@@ -22,11 +22,11 @@ void AudioProcessor::update(void)
             sample = block->data[j] * conversionConstADC;
             for (k = 0; k < fxNum; k++)
             {
-               DSP[i][k].process(&sample); 
+               DSP[i][k].process(&sample, &queue[i][0], head[i]); 
             }
             // save sample to buffer
             queue[i][head[i]] = sample;
-            tail[i] = positive_modulo(head[i] - 35000, BUFF_SIZE);
+            //tail[i] = positive_modulo(head[i] - 35000, BUFF_SIZE);
             head[i] = (head[i] + 1) % BUFF_SIZE;
             //sample = queue[i][tail[i]];
             
@@ -46,15 +46,11 @@ void AudioProcessor::changeParam(int fxPos, int numParam, const float _parameter
     DSP[1][fxPos].setParam(numParam, _parameter);
     __enable_irq();
 }
+
 void AudioProcessor::changeEffect(int fxPos, int fx)
 {
     __disable_irq();
     DSP[0][fxPos].update(fx);
     DSP[1][fxPos].update(fx);
     __enable_irq();
-}
-
-inline int AudioProcessor::positive_modulo(int i, int n) 
-{
-    return (i % n + n) % n;
 }

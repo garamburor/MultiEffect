@@ -27,7 +27,8 @@ void setup() {
   
   // --- audio
   AudioMemory(50);
-  myProcessor.changeEffect(0,1);
+  myProcessor.changeEffect(0,3);
+  myProcessor.changeEffect(1,1);
   // --- serial
   MIDI.setHandleControlChange(processMIDI);
   MIDI.begin(2);
