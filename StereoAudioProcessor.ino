@@ -27,8 +27,7 @@ void setup() {
   
   // --- audio
   AudioMemory(50);
-  myProcessor.changeEffect(0,3);
-  myProcessor.changeEffect(1,1);
+  myProcessor.changeEffect(0,1);
   // --- serial
   MIDI.setHandleControlChange(processMIDI);
   MIDI.begin(2);
@@ -41,17 +40,17 @@ void loop() {
 
 void processMIDI(byte channel, byte number, byte value)
 {
-    step = (value - 40)*0.02;
+    step = value * MIDI_TO_FLOAT;
     switch(number)
     {
       case 0:
-        myProcessor.changeParam(pos,0,step);
+        myProcessor.changeParam(pos,number,step);
         break;
       case 1:
-        myProcessor.changeParam(pos,1,step);
+        myProcessor.changeParam(pos,number,step);
         break;
       case 2:
-        myProcessor.changeParam(pos,2,step);
+        myProcessor.changeParam(pos,number,step);
         break;
       case 3:
         fx = value;
@@ -59,7 +58,6 @@ void processMIDI(byte channel, byte number, byte value)
         break;
       case 4:
         pos = value;
-        Serial.println(pos);
         break;
     }
 }

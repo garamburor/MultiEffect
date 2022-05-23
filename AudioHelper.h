@@ -1,5 +1,8 @@
 #pragma once
 #include <math.h>
+// USER IO CONSTANTS
+#define NUM_ENC 3
+#define MIDI_TO_FLOAT 0.00787401574 // 1 / 127
 
 // General DSP
 #define SEC 1

@@ -20,16 +20,15 @@ void AudioProcessor::update(void)
         for (j = 0; j < AUDIO_BLOCK_SAMPLES; j++) {
             // read the input signal
             sample = block->data[j] * conversionConstADC;
+            // save sample to buffer
+            queue[i][head[i]] = sample;
+            // apply fx
             for (k = 0; k < fxNum; k++)
             {
                DSP[i][k].process(&sample, &queue[i][0], head[i]); 
-            }
-            // save sample to buffer
-            queue[i][head[i]] = sample;
-            //tail[i] = positive_modulo(head[i] - 35000, BUFF_SIZE);
-            head[i] = (head[i] + 1) % BUFF_SIZE;
-            //sample = queue[i][tail[i]];
-            
+            }         
+            // go to next buffer index
+            head[i] = (head[i] + 1) % BUFF_SIZE;            
             // write output sample
             block->data[j] = sample * conversionConstDAC;
         }
