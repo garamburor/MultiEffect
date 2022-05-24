@@ -1,7 +1,6 @@
 #include <Audio.h>
 #include <SPI.h>
 #include <Wire.h>
-#include <SD.h>
 #include <SerialFlash.h>
 #include "audio_processor.h"
 #include <MIDI.h>

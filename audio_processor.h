@@ -24,12 +24,15 @@ public:
 	void changeEffect(int fxPos, int value);
   
 private:
+  inline void denormalize(float* sample);
+  
   audio_block_t *inputQueueArray[NUM_CHNLS];
 
   // circular buffer
   float queue[NUM_CHNLS][BUFF_SIZE] = {};
   int head[NUM_CHNLS] = {};
   int tail[NUM_CHNLS] = {};
+  int test = 0;
   
 	// DSP Objects
 	uint8_t fxNum = fxMax;

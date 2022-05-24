@@ -9,8 +9,10 @@ void ME_DSP::update(int value)
   reset();
 }
 
-void ME_DSP::process(float* sample, float* buffer, int& writeHead)
+void ME_DSP::process(float* sample, float* buffer, int& writeHead, int* readHead)
 {
+  writeIndex = writeHead;
+  readIndex = readHead;
   switch (effect)
   {
     case 0:
@@ -19,14 +21,16 @@ void ME_DSP::process(float* sample, float* buffer, int& writeHead)
         tremolo(sample);
         break;
     case 2:
-        bitcrush(sample, buffer, writeHead);
+        bitcrush(sample);
         break;
     case 3:
-        vibrato(sample, buffer, writeHead);
+        vibrato(sample, buffer);
         break;
     case 4:
-        delay(sample, buffer, writeHead);
+        delay(sample, buffer);
         break;
+    case 5:
+        clipping(sample, 1.0f - param[0]);
     default:
         break;
   }
@@ -34,16 +38,16 @@ void ME_DSP::process(float* sample, float* buffer, int& writeHead)
 
 /* -- DSP EFFECTS -- */
 
-void ME_DSP::clipping(float* sample)
+void ME_DSP::clipping(float* sample, float thresh)
 {
-    float a;
-    float b;
-    // soft-clipping
-    a = sinf(param[0] * PI_2);
-    b = 2*a / (1 - a);
-    mVar1 = (1 + b) * *sample / ( 1 + b * std::abs( *sample ) );
-    // dry / wet control
-    *sample= *sample * (1.0f - param[0] + param[0] * mVar1);
+    if (*sample > thresh)
+    {
+        *sample = 1.0f - expf(-*sample);
+    }
+    else if(*sample < -thresh)
+    {
+        *sample = -1.0f + expf(*sample);
+    }
 }
 
 void ME_DSP::tremolo(float* sample)
@@ -61,24 +65,26 @@ void ME_DSP::tremolo(float* sample)
         }
 }
 
-void ME_DSP::delay(float* sample, float* buffer, int& writeHead)
+void ME_DSP::delay(float* sample, float* buffer)
 {
   mVar3 = param[1] * (BUFF_SIZE - 1); // calculate delay
-  mVar4 = positive_modulo(writeHead - mVar3, BUFF_SIZE); // set read index
+  mVar4 = positive_modulo(*readIndex - mVar3, BUFF_SIZE); // set read index
   temp = *sample + param[2] * *(buffer + mVar4); // delay effect
   *sample = *sample * (1.0f - param[0]) + temp * param[0];
-  *(buffer + writeHead) = *sample; // feedback
+  clipping(sample, 0.8f);
+  *(buffer + *readIndex) = *sample; // feedback
 }
 
-void ME_DSP::vibrato(float* sample, float* buffer, int& writeHead)
+void ME_DSP::vibrato(float* sample, float* buffer)
 {
   mVar1 += param[1] * 15 * invFs;
   LFO(&mVar2, mVar1, (int)param[2]*3);
-  mVar3 = positive_modulo((int) writeHead - mVar2 * 250 * param[0], BUFF_SIZE);
+  mVar3 = positive_modulo((int) writeIndex - mVar2 * 150 * param[0], BUFF_SIZE);
   *sample = *(buffer + mVar3);
+  *readIndex = mVar3;
 }
 
-void ME_DSP::bitcrush(float* sample, float* buffer, int& writeHead)
+void ME_DSP::bitcrush(float* sample)
 {
     mVar1 = pow(2,map(param[1], 16, 2)-1);
     temp = ceil(mVar1 * *sample) / mVar1;
@@ -87,7 +93,7 @@ void ME_DSP::bitcrush(float* sample, float* buffer, int& writeHead)
 
 /* -- DSP HELPERS -- */
 
-void ME_DSP::LFO(float* out, float& phi, int wave)
+inline void ME_DSP::LFO(float* out, float& phi, int wave)
 {
     switch (wave)
     {
@@ -137,19 +143,7 @@ void ME_DSP::setParam(int numParam, const float _parameter)
     paramUpdate();
 }
 
-void ME_DSP::bound(float* x, int low, int high)
-{
-  if(*x < low)
-  {
-    *x = low;
-  }
-  else if(*x > high)
-  {
-    *x = high;
-  }
-}
-
-int ME_DSP::map(float& x, int low, int high)
+inline int ME_DSP::map(float& x, int low, int high)
 {
   int out;
   out = (int) low + (high - low) * x;
@@ -157,11 +151,12 @@ int ME_DSP::map(float& x, int low, int high)
 }
 
 /* PROCESSOR HELPER */
+
 void ME_DSP::reset()
 {
   for(i = 0; i < NUM_ENC; i++)
   {
-    param[i] = 0.5f;
+    param[i] = ENC_RESET;
   }
   temp = 0.0f;
   mVar1 = 0.0f;

@@ -22,19 +22,31 @@ void AudioProcessor::update(void)
             sample = block->data[j] * conversionConstADC;
             // save sample to buffer
             queue[i][head[i]] = sample;
+            test = head[i];
             // apply fx
             for (k = 0; k < fxNum; k++)
             {
-               DSP[i][k].process(&sample, &queue[i][0], head[i]); 
+               DSP[i][k].process(&sample, &queue[i][0], head[i], &test); 
             }         
             // go to next buffer index
-            head[i] = (head[i] + 1) % BUFF_SIZE;            
+            head[i] = (head[i] + 1) % BUFF_SIZE;
+            // denormalize
+            denormalize(&sample);    
             // write output sample
             block->data[j] = sample * conversionConstDAC;
         }
         // send buffer to output
         transmit(block, i);
         release(block);
+    }
+}
+
+inline void AudioProcessor::denormalize(float* sample)
+{
+    float absValue = fabs(*sample);
+    if (absValue < 1e-15)
+    {
+        *sample = 0.0f;
     }
 }
 
