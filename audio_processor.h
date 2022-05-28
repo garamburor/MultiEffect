@@ -12,7 +12,14 @@ class AudioProcessor : public AudioStream
 {
 public:
 
-	AudioProcessor(void) : AudioStream(NUM_CHNLS, inputQueueArray) {}
+	AudioProcessor(void) : AudioStream(NUM_CHNLS, inputQueueArray) 
+	{  
+    for(k = 0; k < fxMax; k++)
+    {
+      DSPL[k].initialize(&queue[0][0], &head, &test);
+      DSPR[k].initialize(&queue[1][0], &head, &test);
+    }
+  }
 	virtual void update(void);
 	const int resolutionDAC = 16;
 	const int resolutionADC = 16;
@@ -24,23 +31,26 @@ public:
 	void changeEffect(int fxPos, int value);
   
 private:
+
   inline void denormalize(float* sample);
   
   audio_block_t *inputQueueArray[NUM_CHNLS];
 
   // circular buffer
   float queue[NUM_CHNLS][BUFF_SIZE] = {};
-  int head[NUM_CHNLS] = {};
-  int tail[NUM_CHNLS] = {};
+  int head = 0;
+  int tail = 0;
   int test = 0;
   
 	// DSP Objects
 	uint8_t fxNum = fxMax;
-	ME_DSP DSP[NUM_CHNLS][fxMax];
   
-	uint8_t i = 0;
+	uint8_t channel = 0;
 	uint8_t j = 0;
 	uint8_t k = 0;
+
+  ME_DSP DSPL[fxMax]; 
+  ME_DSP DSPR[fxMax];
 };
 
 #endif
