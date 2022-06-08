@@ -44,13 +44,14 @@ private:
   
 	// DSP Objects
 	uint8_t fxNum = fxMax;
+  ME_DSP DSPL[fxMax]; 
+  ME_DSP DSPR[fxMax];
   
 	uint8_t channel = 0;
 	uint8_t j = 0;
 	uint8_t k = 0;
 
-  ME_DSP DSPL[fxMax]; 
-  ME_DSP DSPR[fxMax];
+  
 };
 
 #endif

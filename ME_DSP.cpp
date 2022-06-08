@@ -7,7 +7,7 @@
 void ME_DSP::update(int value)
 {
   effect = value;
-  if(effect == 1)
+  if(effect == 6)
   {
     startVerb();
   }
@@ -21,8 +21,7 @@ void ME_DSP::process(float* sample)
     case 0:
         break;
     case 1:
-        //tremolo(sample);
-        reverb(sample);
+        tremolo(sample);
         break;
     case 2:
         bitcrush(sample);
@@ -35,6 +34,10 @@ void ME_DSP::process(float* sample)
         break;
     case 5:
         clipping(sample, 1.0f - param[0]);
+        break;
+    case 6:
+        reverb(sample);
+        break;
     default:
         break;
   }
@@ -81,6 +84,9 @@ void ME_DSP::delay(float* sample)
 
 void ME_DSP::reverb(float* sample)
 {
+  mVar1 += 2 * invFs;
+  //LFO(&mVar2, mVar1, 0);
+  
   // input
   IIRfilter(sample, bandwidth, &mPrev[0]);
   allpass1(sample, inputDiffusion1, &node13_14[0], 210);
@@ -89,32 +95,31 @@ void ME_DSP::reverb(float* sample)
   allpass1(sample, inputDiffusion2, &node21_22[0], 410);
   
   // first tank
-  tempSample2 = *sample + node59_63[(reverbIndex + 1) % 4687];
-  allpass2(&tempSample2, decayDiffusion1, &node23_24[0], 998);
-  node24_30[reverbIndex % 6598] = tempSample2;
-  IIRfilter(&node24_30[(reverbIndex + 1) % 6598], damping, &mPrev[1]);
-  tempSample2 = param[1] * tempSample2;
-  allpass1(&tempSample2, decayDiffusion2, &node31_33[0], 2667);
-  node33_39[reverbIndex % 5512] = tempSample2;
+  tempSample2 = *sample + node59_63[(reverbIndex + 1) % (int) (param[1] * size[7])];
+  allpass2(&tempSample2, decayDiffusion1, &node23_24[0], (int) (param[1] * size[0]));
+  node24_30[reverbIndex % (int) (param[1] * size[1])] = tempSample2;
+  IIRfilter(&node24_30[(reverbIndex + 1) % (int) (param[1] * size[1])], damping, &mPrev[1]);
+  tempSample2 = param[2] * tempSample2;
+  allpass1(&tempSample2, decayDiffusion2, &node31_33[0], (int) (param[1] * size[2]));
+  node33_39[reverbIndex % (int) (param[1] * size[3])] = tempSample2;
 
   // second tank
-  tempSample3 = *sample + node33_39[(reverbIndex + 1) % 5512];
-  LFO(&mVar2, mVar1, 0);
-  allpass2(&tempSample3, decayDiffusion1, &node46_48[0], 1345);
-  node48_54[reverbIndex % 6249] = tempSample3;
-  IIRfilter(&node48_54[(reverbIndex + 1) % 6249], damping, &mPrev[2]);
-  tempSample3 = param[1] * tempSample3;
-  allpass1(&tempSample3, decayDiffusion2, &node55_59[0], 3936);
-  node59_63[reverbIndex % 4687] = tempSample3;
+  tempSample3 = *sample + node33_39[(reverbIndex + 1) % (int) (param[1] * size[3])];
+  allpass2(&tempSample3, decayDiffusion1, &node46_48[0], (int)(param[1] * size[4]));
+  node48_54[reverbIndex % (int) (param[1] * size[5])] = tempSample3;
+  IIRfilter(&node48_54[(reverbIndex + 1) % (int) (param[1] * size[5])], damping, &mPrev[2]);
+  tempSample3 = param[2] * tempSample3;
+  allpass1(&tempSample3, decayDiffusion2, &node55_59[0], (int) (param[1] * size[6]));
+  node59_63[reverbIndex % (int) (param[1] * size[7])] = tempSample3;
   
   // left output
-  accumulator = 0.6 * node48_54[(reverbIndex + 394) % 6249];
-  accumulator += 0.6 * node48_54[(reverbIndex + 4407) % 6249];
-  accumulator -= 0.6 * node55_59[(reverbIndex + 2835) % 3936];
-  accumulator += 0.6 * node59_63[(reverbIndex + 2958) % 4687];
-  accumulator -= 0.6 * node24_30[(reverbIndex + 2949) % 6598];
-  accumulator -= 0.6 * node31_33[(reverbIndex + 277) % 2667];
-  accumulator -= 0.6 * node33_39[(reverbIndex + 1580) % 5512];
+  accumulator = 0.6 * node48_54[(reverbIndex + 394) % (int) (param[1] * size[5])];
+  accumulator += 0.6 * node48_54[(reverbIndex + 4407) % (int) (param[1] * size[5])];
+  accumulator -= 0.6 * node55_59[(reverbIndex + 2835) % (int) (param[1] * size[6])];
+  accumulator += 0.6 * node59_63[(reverbIndex + 2958) % (int) (param[1] * size[7])];
+  accumulator -= 0.6 * node24_30[(reverbIndex + 2949) % (int) (param[1] * size[1])];
+  accumulator -= 0.6 * node31_33[(reverbIndex + 277) % (int) (param[1] * size[2])];
+  accumulator -= 0.6 * node33_39[(reverbIndex + 1580) % (int) (param[1] * size[3])];
   
   *sample = *sample * (1.0f - param[0]) + param[0] * accumulator;
   
@@ -191,7 +196,7 @@ void ME_DSP::allpass1(float* sample, float gain, float* tap, int delay)
 
 void ME_DSP::allpass2(float* sample, float gain, float* tap, int delay)
 {
-  *sample = *sample + gain * tap[(reverbIndex + 1) % delay];
+  *sample = *sample + gain * tap[positive_modulo(reverbIndex + 1 + (int)mVar2*400, delay)];
   tap[reverbIndex % delay] = *sample;
   *sample = - gain * *sample + tap[(reverbIndex + 1) % delay];
 }
@@ -238,14 +243,14 @@ void ME_DSP::startVerb()
   node19_20 = (float*) calloc(159,sizeof(float));
   node15_16 = (float*) calloc(562,sizeof(float));
   node21_22 = (float*) calloc(410,sizeof(float));
-  node23_24 = (float*) calloc(998,sizeof(float));
-  node24_30 = (float*) calloc(6598,sizeof(float));
-  node31_33 = (float*) calloc(2667,sizeof(float));
-  node33_39 = (float*) calloc(5512,sizeof(float));
-  node46_48 = (float*) calloc(1345,sizeof(float));
-  node48_54 = (float*) calloc(6249,sizeof(float));
-  node55_59 = (float*) calloc(3936,sizeof(float));
-  node59_63 = (float*) calloc(4687,sizeof(float));
+  node23_24 = (float*) calloc(size[0],sizeof(float));
+  node24_30 = (float*) calloc(size[1],sizeof(float));
+  node31_33 = (float*) calloc(size[2],sizeof(float));
+  node33_39 = (float*) calloc(size[3],sizeof(float));
+  node46_48 = (float*) calloc(size[4],sizeof(float));
+  node48_54 = (float*) calloc(size[5],sizeof(float));
+  node55_59 = (float*) calloc(size[6],sizeof(float));
+  node59_63 = (float*) calloc(size[7],sizeof(float));
 }
 
 void ME_DSP::initialize(float* buff, int* write, int* read)

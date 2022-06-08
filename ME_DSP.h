@@ -65,7 +65,7 @@ private:
   float inputDiffusion2 = 0.625f;
   float bandwidth = 0.9995f;
   float damping = 0.001f;
-
+  int size[8] = {998, 6598, 2667, 5512, 1345, 6249, 3936, 4687};
   float* node13_14;
   float* node19_20;
   float* node15_16;
