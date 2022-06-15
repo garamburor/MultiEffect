@@ -13,13 +13,13 @@ class AudioProcessor : public AudioStream
 public:
 
 	AudioProcessor(void) : AudioStream(NUM_CHNLS, inputQueueArray) 
-	{  
-    for(k = 0; k < fxMax; k++)
+	{
+    for(int i = 0; i < fxMax; i++)
     {
-      DSPL[k].initialize(&queue[0][0], &head, &test);
-      DSPR[k].initialize(&queue[1][0], &head, &test);
+      DSP[i] = new ME_DSP();
     }
-  }
+	}
+
 	virtual void update(void);
 	const int resolutionDAC = 16;
 	const int resolutionADC = 16;
@@ -29,29 +29,30 @@ public:
 	// Set a parameter
 	void changeParam(int fxPos, int numParam, const float _parameter);
 	void changeEffect(int fxPos, int value);
+  void changeVolume(float gain);
+  void changeMix(float d);
   
 private:
 
-  inline void denormalize(float* sample);
+	inline void denormalize(float* sample);
   
-  audio_block_t *inputQueueArray[NUM_CHNLS];
+	audio_block_t *inputQueueArray[NUM_CHNLS];
 
-  // circular buffer
-  float queue[NUM_CHNLS][BUFF_SIZE] = {};
-  int head = 0;
-  int tail = 0;
-  int test = 0;
+  float volume = 1.f;
+  float depth = 1.f;
+
+	// circular buffer
+	float queue[NUM_CHNLS][BUFF_SIZE] = {};
+	int head = 0;
+	int readPtr;
   
 	// DSP Objects
 	uint8_t fxNum = fxMax;
-  ME_DSP DSPL[fxMax]; 
-  ME_DSP DSPR[fxMax];
+	ME_DSP* DSP[fxMax]; 
   
 	uint8_t channel = 0;
 	uint8_t j = 0;
 	uint8_t k = 0;
-
-  
 };
 
 #endif

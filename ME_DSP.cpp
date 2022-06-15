@@ -2,147 +2,21 @@
 #include <cmath> 
 #include <stdlib.h>
 
-/* -- PROCESSOR -- */
+/* PROCESSOR HELPER */
 
-void ME_DSP::update(int value)
+void ME_DSP::setParam(int numParam, const float _parameter)
 {
-  effect = value;
-  if(effect == 6)
-  {
-    startVerb();
-  }
-  reset();
+    param[numParam] = _parameter;
 }
 
-void ME_DSP::process(float* sample)
+void ME_DSP::startBuffer(float* bL, int* ind)
 {
-  switch (effect)
-  {
-    case 0:
-        break;
-    case 1:
-        tremolo(sample);
-        break;
-    case 2:
-        bitcrush(sample);
-        break;
-    case 3:
-        vibrato(sample);
-        break;
-    case 4:
-        delay(sample);
-        break;
-    case 5:
-        clipping(sample, 1.0f - param[0]);
-        break;
-    case 6:
-        reverb(sample);
-        break;
-    default:
-        break;
-  }
+  buff[0] = bL;
+  buff[1] = (bL + BUFF_SIZE);
+  index = ind;
 }
 
-/* -- DSP EFFECTS -- */
-
-void ME_DSP::clipping(float* sample, float thresh)
-{
-    if (*sample > thresh)
-    {
-        *sample = 1.0f - expf(-*sample);
-    }
-    else if(*sample < -thresh)
-    {
-        *sample = -1.0f + expf(*sample);
-    }
-}
-
-void ME_DSP::tremolo(float* sample)
-{
-        // phase acts as f*n/Fs
-        mVar1 += param[1] * 15 * invFs;
-        // cal LFO for modulation
-        LFO(&mVar2, mVar1, (int)param[2]*3);
-        // dry / wet control
-        *sample = *sample * (1.0f - param[0] + param[0] * mVar2);
-        // reset phi
-        if (mVar1 >= 1.0f)
-        {
-            mVar1 = 0.0f;
-        }
-}
-
-void ME_DSP::delay(float* sample)
-{
-  mVar3 = param[1] * (BUFF_SIZE - 1); // calculate delay
-  mVar4 = positive_modulo(*readIndex - mVar3, BUFF_SIZE); // set read index
-  temp = *sample + param[2] * *(buffer + mVar4); // delay effect
-  *sample = *sample * (1.0f - param[0]) + temp * param[0];
-  clipping(sample, 0.8f);
-  *(buffer + *readIndex) = *sample; // feedback
-}
-
-void ME_DSP::reverb(float* sample)
-{
-  mVar1 += 2 * invFs;
-  //LFO(&mVar2, mVar1, 0);
-  
-  // input
-  IIRfilter(sample, bandwidth, &mPrev[0]);
-  allpass1(sample, inputDiffusion1, &node13_14[0], 210);
-  allpass1(sample, inputDiffusion1, &node19_20[0], 159);
-  allpass1(sample, inputDiffusion2, &node15_16[0], 562);
-  allpass1(sample, inputDiffusion2, &node21_22[0], 410);
-  
-  // first tank
-  tempSample2 = *sample + node59_63[(reverbIndex + 1) % (int) (param[1] * size[7])];
-  allpass2(&tempSample2, decayDiffusion1, &node23_24[0], (int) (param[1] * size[0]));
-  node24_30[reverbIndex % (int) (param[1] * size[1])] = tempSample2;
-  IIRfilter(&node24_30[(reverbIndex + 1) % (int) (param[1] * size[1])], damping, &mPrev[1]);
-  tempSample2 = param[2] * tempSample2;
-  allpass1(&tempSample2, decayDiffusion2, &node31_33[0], (int) (param[1] * size[2]));
-  node33_39[reverbIndex % (int) (param[1] * size[3])] = tempSample2;
-
-  // second tank
-  tempSample3 = *sample + node33_39[(reverbIndex + 1) % (int) (param[1] * size[3])];
-  allpass2(&tempSample3, decayDiffusion1, &node46_48[0], (int)(param[1] * size[4]));
-  node48_54[reverbIndex % (int) (param[1] * size[5])] = tempSample3;
-  IIRfilter(&node48_54[(reverbIndex + 1) % (int) (param[1] * size[5])], damping, &mPrev[2]);
-  tempSample3 = param[2] * tempSample3;
-  allpass1(&tempSample3, decayDiffusion2, &node55_59[0], (int) (param[1] * size[6]));
-  node59_63[reverbIndex % (int) (param[1] * size[7])] = tempSample3;
-  
-  // left output
-  accumulator = 0.6 * node48_54[(reverbIndex + 394) % (int) (param[1] * size[5])];
-  accumulator += 0.6 * node48_54[(reverbIndex + 4407) % (int) (param[1] * size[5])];
-  accumulator -= 0.6 * node55_59[(reverbIndex + 2835) % (int) (param[1] * size[6])];
-  accumulator += 0.6 * node59_63[(reverbIndex + 2958) % (int) (param[1] * size[7])];
-  accumulator -= 0.6 * node24_30[(reverbIndex + 2949) % (int) (param[1] * size[1])];
-  accumulator -= 0.6 * node31_33[(reverbIndex + 277) % (int) (param[1] * size[2])];
-  accumulator -= 0.6 * node33_39[(reverbIndex + 1580) % (int) (param[1] * size[3])];
-  
-  *sample = *sample * (1.0f - param[0]) + param[0] * accumulator;
-  
-  reverbIndex++;
-}
-
-void ME_DSP::vibrato(float* sample)
-{
-  mVar1 += param[1] * 15 * invFs;
-  LFO(&mVar2, mVar1, (int)param[2]*3);
-  mVar3 = positive_modulo((int) *writeIndex - mVar2 * 150 * param[0], BUFF_SIZE);
-  *sample = *(buffer + mVar3);
-  *readIndex = mVar3;
-}
-
-void ME_DSP::bitcrush(float* sample)
-{
-    mVar1 = pow(2,map(param[1], 16, 2)-1);
-    temp = ceil(mVar1 * *sample) / mVar1;
-    *sample = *sample * (1.0f - param[0]) + temp * param[0];
-}
-
-/* -- DSP HELPERS -- */
+/* DSP HELPERS */
 
 void ME_DSP::LFO(float* out, float& phi, int wave)
 {
@@ -176,9 +50,14 @@ void ME_DSP::LFO(float* out, float& phi, int wave)
             if (phi < 0.5f)
                 *out = 0.5f - phi;
             else
-                *out = 1.5f - phi;
+               *out = 1.5f - phi;
             break;
     }
+}
+
+inline float ME_DSP::fmap(float x, float out_min, float out_max) 
+{
+  return x * (out_max - out_min) + out_min;
 }
 
 void ME_DSP::IIRfilter(float* sample, float gain, float* tap)
@@ -187,18 +66,30 @@ void ME_DSP::IIRfilter(float* sample, float gain, float* tap)
   *tap = *sample;
 }
 
-void ME_DSP::allpass1(float* sample, float gain, float* tap, int delay)
+void ME_DSP::allpass1(float* sample, float gain, float* tap, int delay, int index)
 {
-  *sample = *sample - gain * tap[(reverbIndex + 1) % delay];
-  tap[reverbIndex % delay] = *sample;
-  *sample = gain * *sample + tap[(reverbIndex + 1) % delay];
+  *sample = *sample - gain * tap[(index + 1) % delay];
+  tap[index % delay] = *sample;
+  *sample = gain * *sample + tap[(index + 1) % delay];
 }
 
-void ME_DSP::allpass2(float* sample, float gain, float* tap, int delay)
+void ME_DSP::allpass2(float* sample, float gain, float* tap, int delay, int index)
 {
-  *sample = *sample + gain * tap[positive_modulo(reverbIndex + 1 + (int)mVar2*400, delay)];
-  tap[reverbIndex % delay] = *sample;
-  *sample = - gain * *sample + tap[(reverbIndex + 1) % delay];
+  *sample = *sample + gain * tap[(index + 1) % delay];
+  tap[index % delay] = *sample;
+  *sample = - gain * *sample + tap[(index + 1) % delay];
+}
+
+void ME_DSP::clipping(float* sample, float thresh)
+{
+    if (*sample > thresh)
+    {
+        *sample = 1.0f - expf(-*sample);
+    }
+    else if(*sample < -thresh)
+    {
+        *sample = -1.0f + expf(*sample);
+    }
 }
 
 inline int ME_DSP::positive_modulo(int i, int n)
@@ -206,73 +97,267 @@ inline int ME_DSP::positive_modulo(int i, int n)
   return (i % n + n) % n;
 }
 
-/* -- PARAM HELPERS -- */
-
-void ME_DSP::setParam(int numParam, const float _parameter)
+inline float ME_DSP::interpolation(float sampleDelay, int chnl)
 {
-    param[numParam] = _parameter;
-    paramUpdate();
+  eta = sampleDelay - floor(sampleDelay);
+  x1 = buff[0][positive_modulo((int) (*index - (int) sampleDelay), BUFF_SIZE)];
+  x2 = buff[0][positive_modulo((int) (*index - (int) sampleDelay - 1), BUFF_SIZE)];
+  return (1.f - eta) * x1 + eta * x2;
 }
 
-inline int ME_DSP::map(float& x, int low, int high)
+/* AUDIO EFFECTS */
+
+void tremolo::process(float* sample)
 {
-  int out;
-  out = (int) low + (high - low) * x;
-  return out;
+      for(i = 0; i < NUM_CHNLS; i ++)
+      {
+        // call LFO for modulation
+        ME_DSP::LFO(&mod, freqStep, (int) ceil(param[2] * 3));
+        // dry / wet control
+        sample[i] = sample[i] * (1.0f - ME_DSP::param[0] + ME_DSP::param[0] * mod);
+      }
+      // phase acts as f*n/Fs
+      freqStep += ME_DSP::param[1] * 15.f * invFs;
+      // reset phi
+      if (freqStep >= 1.0f)
+      {
+          freqStep = 0.0f;
+      }
 }
 
-/* PROCESSOR HELPER */
+void bitcrush::paramUpdate(int numParam)
+{
+  switch(numParam)
+  {
+    case 1:
+      bitRes = pow(2,ME_DSP::fmap(ME_DSP::param[1], 16, 2)-1);
+      break;
+    default:
+      break;
+  } 
+}
 
-void ME_DSP::startVerb()
-{  
-  // REVERB
-  tempSample = 0;
-  tempSample2 = 0;
-  tempSample3 = 0;
-  accumulator = 0;
+void bitcrush::process(float* sample)
+{
+  for(i = 0; i < NUM_CHNLS; i++)
+  {
+    wet = ceil(bitRes * sample[i]) / bitRes;
+    sample[i] = sample[i] * (1.0f - ME_DSP::param[0]) + wet * ME_DSP::param[0];
+  }  
+}
+
+reverb::reverb()
+{
+  tempSample = 0.f;
+  tempSample2 = 0.f;
+  tempSample3 = 0.f;
+  accumulator = 0.f;
+
+  reverbIndex = 0;
   EXCURSION = 24;
-  decay = 0.98f;
   decayDiffusion1 = 0.700f;
   decayDiffusion2 = 0.500f;
   inputDiffusion1 = 0.750f;
   inputDiffusion2 = 0.625f;
-  bandwidth = 0.9995f;
-  damping = 0.001f;
+  bandwidth = 1.f - exp(- twoPI * 10000.f * invFs);
+  damping = exp(- twoPI * 10000.f * invFs); 
+  
+  node13_14 = (float*) calloc(size[0],sizeof(float));
+  node19_20 = (float*) calloc(size[1],sizeof(float));
+  node15_16 = (float*) calloc(size[2],sizeof(float));
+  node21_22 = (float*) calloc(size[3],sizeof(float));
+  node23_24 = (float*) calloc(size[4],sizeof(float));
+  node24_30 = (float*) calloc(size[5],sizeof(float));
+  node31_33 = (float*) calloc(size[6],sizeof(float));
+  node33_39 = (float*) calloc(size[7],sizeof(float));
+  node46_48 = (float*) calloc(size[8],sizeof(float));
+  node48_54 = (float*) calloc(size[9],sizeof(float));
+  node55_59 = (float*) calloc(size[10],sizeof(float));
+  node59_63 = (float*) calloc(size[11],sizeof(float));
 
-  node13_14 = (float*) calloc(210,sizeof(float));
-  node19_20 = (float*) calloc(159,sizeof(float));
-  node15_16 = (float*) calloc(562,sizeof(float));
-  node21_22 = (float*) calloc(410,sizeof(float));
-  node23_24 = (float*) calloc(size[0],sizeof(float));
-  node24_30 = (float*) calloc(size[1],sizeof(float));
-  node31_33 = (float*) calloc(size[2],sizeof(float));
-  node33_39 = (float*) calloc(size[3],sizeof(float));
-  node46_48 = (float*) calloc(size[4],sizeof(float));
-  node48_54 = (float*) calloc(size[5],sizeof(float));
-  node55_59 = (float*) calloc(size[6],sizeof(float));
-  node59_63 = (float*) calloc(size[7],sizeof(float));
+  paramUpdate(1);
 }
 
-void ME_DSP::initialize(float* buff, int* write, int* read)
+reverb::~reverb()
 {
-  buffer = buff;
-  writeIndex = write;
-  readIndex = read;
+  delete node13_14;
+  delete node19_20;
+  delete node15_16;
+  delete node21_22;
+  delete node23_24;
+  delete node24_30;
+  delete node31_33;
+  delete node33_39;
+  delete node46_48;
+  delete node48_54;
+  delete node55_59;
+  delete node59_63;
 }
 
-void ME_DSP::reset()
+void reverb::paramUpdate(int numParam)
 {
-  for(i = 0; i < NUM_ENC; i++)
+  switch(numParam)
   {
-    param[i] = ENC_RESET;
-  }
-  temp = 0.0f;
-  mVar1 = 0.0f;
-  mVar2 = 0.0f;
-  mVar3 = 0;
-  mVar4 = 0;
+    case 1:
+      for(i = 4; i < 12; i++)
+      {
+        test[i] = (int) (ME_DSP::fmap(ME_DSP::param[1], 2, size[i]));
+      }
+      break;
+    default:
+      break;
+  } 
 }
 
-void ME_DSP::paramUpdate() // change parameter values only
+void reverb::process(float* sample)
 {
+  // input
+  tempSample = (sample[0] + sample[1]) * 0.5f;
+  // IIR Filter
+  tempSample = tempSample * bandwidth + mPrev[0] * (1.0f - bandwidth);
+  ME_DSP::allpass1(&tempSample, inputDiffusion1, &node13_14[0], size[0], reverbIndex);
+  ME_DSP::allpass1(&tempSample, inputDiffusion1, &node19_20[0], size[1], reverbIndex);
+  ME_DSP::allpass1(&tempSample, inputDiffusion2, &node15_16[0], size[2], reverbIndex);
+  ME_DSP::allpass1(&tempSample, inputDiffusion2, &node21_22[0], size[3], reverbIndex);
+
+  // first tank
+  tempSample2 = tempSample + node59_63[(reverbIndex + 1) % test[11]];
+  ME_DSP::allpass2(&tempSample2, decayDiffusion1, &node23_24[0], test[4], reverbIndex);
+  node24_30[reverbIndex % test[5]] = tempSample2;
+  // IIR Filter
+  tempSample2 = node24_30[(reverbIndex + 1) % test[5]] * (1.0f - damping) + mPrev[1] * damping;
+  ME_DSP::allpass1(&tempSample2, decayDiffusion2, &node31_33[0], test[6], reverbIndex);
+  tempSample2 = ME_DSP::param[2] * tempSample2;
+  node33_39[reverbIndex % test[7]] = tempSample2;
+
+  // second tank
+  tempSample3 = tempSample + node33_39[(reverbIndex + 1) % test[7]];
+  ME_DSP::allpass2(&tempSample3, decayDiffusion1, &node46_48[0], test[8], reverbIndex);
+  node48_54[reverbIndex % test[9]] = tempSample3;
+  // IIR Filter
+  tempSample3 = node48_54[(reverbIndex + 1) % test[9]] * (1.0f - damping) + mPrev[2] * damping;
+  ME_DSP::allpass1(&tempSample3, decayDiffusion2, &node55_59[0], test[10], reverbIndex);
+  tempSample3 = ME_DSP::param[2] * tempSample3;
+  node59_63[reverbIndex % test[11]] = tempSample3;
+
+  // left output
+  accumulator = 0.6 * node48_54[(reverbIndex + 394) % test[9]];
+  accumulator += 0.6 * node48_54[(reverbIndex + 4407) % test[9]];
+  accumulator -= 0.6 * node55_59[(reverbIndex + 2835) % test[10]];
+  accumulator += 0.6 * node59_63[(reverbIndex + 2958) % test[11]];
+  accumulator -= 0.6 * node24_30[(reverbIndex + 2949) % test[5]];
+  accumulator -= 0.6 * node31_33[(reverbIndex + 277) % test[6]];
+  accumulator -= 0.6 * node33_39[(reverbIndex + 1580) % test[7]];
+
+  sample[0] = sample[0] * (1.0f - ME_DSP::param[0]) + ME_DSP::param[0] * accumulator;
+  
+  // right output
+  accumulator = 0.6 * node24_30[(reverbIndex + 523) % test[5]];
+  accumulator += 0.6 * node24_30[(reverbIndex + 5374) % test[5]];
+  accumulator -= 0.6 * node31_33[(reverbIndex + 1820) % test[6]];
+  accumulator += 0.6 * node33_39[(reverbIndex + 3961) % test[7]];
+  accumulator -= 0.6 * node48_54[(reverbIndex + 3128) % test[9]];
+  accumulator -= 0.6 * node55_59[(reverbIndex + 496) % test[10]];
+  accumulator -= 0.6 * node59_63[(reverbIndex + 179) % test[11]];
+
+  sample[1] = sample[1] * (1.0f - ME_DSP::param[0]) + ME_DSP::param[0] * accumulator;
+
+  reverbIndex++;
+}
+
+
+void clip::process(float* sample)
+{
+  for(i = 0; i < NUM_CHNLS; i++)
+  {
+    ME_DSP::clipping(&sample[i], (1.0f - ME_DSP::param[0]));
+  }
+  
+}
+
+/* DELAY */
+
+echo::echo()
+{
+  alpha = 1.f - exp(- twoPI * 4000.f * invFs);
+  temp = 0.f;
+  paramUpdate(1);
+}
+
+void echo::paramUpdate(int numParam)
+{
+  switch(numParam)
+  {
+    case 1:
+      time = (int) ME_DSP::fmap(ME_DSP::param[1], 1, BUFF_SIZE - 1);
+      break;
+    default:
+      break;
+  }
+}
+
+void echo::process(float* sample)
+{
+  for(i = 0; i < NUM_CHNLS; i++)
+  {
+    sample[i] += ME_DSP::param[2] * ME_DSP::interpolation(time, i);
+    ME_DSP::clipping(&sample[i], 0.8f);
+    temp = sample[i] * alpha + temp * (1.0f - alpha);
+    ME_DSP::buff[i][*ME_DSP::index] = temp;
+  }
+}
+
+/* VIBRATO */
+
+void vibrato::process(float* sample)
+{
+  for(i = 0; i < NUM_CHNLS; i++)
+  {
+    ME_DSP::LFO(&mod, rate,(int) ceil(param[2] * 3));
+    mod =  mod * 100.f * ME_DSP::param[0];
+    e = mod - floor(mod);
+    r1 = ME_DSP::buff[i][ME_DSP::positive_modulo((int) (*ME_DSP::index - (int) mod), BUFF_SIZE)];
+    r2 = ME_DSP::buff[i][ME_DSP::positive_modulo((int) (*ME_DSP::index - (int) mod - 1), BUFF_SIZE)];
+    sample[i] = (1.f - e) * r1 + e * r2;
+  }
+  *ME_DSP::index = *ME_DSP::index + (int) mod;
+  // phase acts as f*n/Fs
+  rate += ME_DSP::param[1] * 6.f * invFs;
+  // reset phi
+  if (rate >= 1.0f)
+  {
+      rate = 0.0f;
+  }
+}
+
+/* PING PONG DELAY */
+
+pingpong::pingpong()
+{
+  alpha = 1.f - exp(- twoPI * 4000.f * invFs);
+  temp = 0.f;
+  paramUpdate(1);
+}
+
+void pingpong::paramUpdate(int numParam)
+{
+  switch(numParam)
+  {
+    case 1:
+      time = (int) (ME_DSP::fmap(ME_DSP::param[1], 1, BUFF_SIZE - 1));
+      break;
+    default:
+      break;
+  }
+}
+
+void pingpong::process(float* sample)
+{
+  for(i = 0; i < NUM_CHNLS; i++)
+  {
+    sample[i] += ME_DSP::param[2] * ME_DSP::interpolation(time, (i + 1) % BUFF_SIZE);
+    ME_DSP::clipping(&sample[i], 0.8f);
+    temp = sample[i] * alpha + temp * (1.0f - alpha);
+    ME_DSP::buff[i][*ME_DSP::index] = temp;
+  }
 }
